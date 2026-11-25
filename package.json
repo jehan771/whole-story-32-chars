@@ -1,0 +1,1 @@
+{"description":"Tell a Whole Story in 32 Characters — one Wi-Fi name, 31 characters","license":"MIT","main":"main.ts","name":"whole-story-32-chars","scripts":{"start":"node main.ts"},"type":"module","version":"1.0.0"}
