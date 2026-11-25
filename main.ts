@@ -1,50 +1,42 @@
-// Tell a Whole Story in 32 Characters — entry program.
-//
-// Behaviour: write one fixed Wi-Fi network name (at most 32 characters) to
-// /output/entry.txt, exactly as the gate scorer expects it: UTF-8 text,
-// 1 to 32 characters, not only whitespace, no trailing newline. The text is
-// a constant chosen during the build; the program's only job is to emit it
-// deterministically and to refuse to write anything that fails the gate.
-//
-// The line: a proposal over Zoom, killed at the crucial second by dead Wi-Fi.
-// Situation, character and event in 31 characters; the reader fills in the
-// rest (did she hear the question? did she say yes?).
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-
-const LINE = "He Proposed On Zoom. WiFi Died.";
+// One whole story in at most 32 characters: a proposal over Zoom that
+// collapses at the crucial second when the WiFi dies. The 31 characters
+// below carry the setup, the characters and the event; the reader fills
+// in the rest — did she hear the question? did she say yes?
+const STORY = "He Proposed On Zoom. WiFi Died.";
 const OUT_PATH = "/output/entry.txt";
+const MAX_CHARS = 32;
 
-// Gate, enforced before anything is written: 1..32 characters, and the text
-// must contain a non-whitespace character. Characters here are Unicode code
-// points, matching how the gate counts a short ASCII line.
-const chars = [...LINE];
-if (chars.length < 1 || chars.length > 32) {
-  throw new Error(`entry is ${chars.length} characters, gate needs 1..32`);
-}
-if (LINE.trim().length === 0) {
-  throw new Error("entry is only whitespace, gate refuses it");
-}
-// No trailing newline: the file must hold exactly the line, nothing else,
-// so the byte count stays 31 and the character count stays 31.
-if (LINE.endsWith("\n") || LINE.endsWith("\r")) {
-  throw new Error("entry must not end with a newline");
+function countChars(text: string): number {
+  // Count Unicode code points, not UTF-16 code units.
+  return Array.from(text).length;
 }
 
-mkdirSync("/output", { recursive: true });
-writeFileSync(OUT_PATH, LINE, "utf8");
-
-// Read-back verification: the bytes on disk must be exactly the line we
-// meant to write. Any mismatch is a hard failure, never a silent pass.
-const back = readFileSync(OUT_PATH, "utf8");
-if (back !== LINE) {
-  throw new Error(
-    `read-back mismatch: wrote ${JSON.stringify(LINE)}, disk holds ${JSON.stringify(back)}`,
-  );
-}
-const backBytes = Buffer.byteLength(back, "utf8");
-if (backBytes !== 31) {
-  throw new Error(`expected 31 bytes on disk, got ${backBytes}`);
+function ensureOutputDir(path: string): void {
+  mkdirSync(dirname(path), { recursive: true });
 }
 
-console.log(`wrote ${chars.length} chars (${backBytes} bytes) to ${OUT_PATH}`);
+function validateStory(text: string): void {
+  const chars = countChars(text);
+  if (chars < 1 || chars > MAX_CHARS) {
+    throw new Error(
+      `story must be 1-${MAX_CHARS} characters, got ${chars}`,
+    );
+  }
+  if (text.trim().length === 0) {
+    throw new Error("story must not be only whitespace");
+  }
+  if (text.endsWith("\n") || text.endsWith("\r")) {
+    throw new Error("story must not end with a newline");
+  }
+  // Must be valid UTF-8: a round-trip through Buffer must be identical.
+  if (Buffer.from(text, "utf8").toString("utf8") !== text) {
+    throw new Error("story must be valid UTF-8 text");
+  }
+}
+
+validateStory(STORY);
+ensureOutputDir(OUT_PATH);
+writeFileSync(OUT_PATH, STORY, "utf8");
